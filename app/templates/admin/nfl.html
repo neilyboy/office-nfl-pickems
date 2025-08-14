@@ -1,0 +1,158 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-4">NFL Data</h1>
+
+{% if request.query_params.get('ok') == 'teams' %}
+  <div class="mb-4 rounded border border-emerald-700 bg-emerald-900/30 px-3 py-2 text-emerald-200 text-sm">
+    Teams imported. Inserted: {{ request.query_params.get('ins') }}, Updated: {{ request.query_params.get('upd') }}
+  </div>
+{% elif request.query_params.get('ok') == 'week' %}
+  <div class="mb-4 rounded border border-emerald-700 bg-emerald-900/30 px-3 py-2 text-emerald-200 text-sm">
+    Week {{ request.query_params.get('wk') }} ({{ request.query_params.get('year') }}) schedule import completed.
+    {% set stype = request.query_params.get('stype') %}
+    {% if stype == '1' %}<span class="text-slate-300">Type: Preseason.</span>{% elif stype == '2' %}<span class="text-slate-300">Type: Regular.</span>{% elif stype == '3' %}<span class="text-slate-300">Type: Postseason.</span>{% endif %}
+    Upserted: {{ request.query_params.get('count') }} games.
+  </div>
+{% elif request.query_params.get('ok') == 'season' %}
+  <div class="mb-4 rounded border border-emerald-700 bg-emerald-900/30 px-3 py-2 text-emerald-200 text-sm">
+    Season {{ request.query_params.get('year') }} import completed.
+    Weeks imported: {{ request.query_params.get('weeks') }}, Total games upserted: {{ request.query_params.get('total') }}.
+    <span class="text-slate-300">Breakdown</span> — Pre: {{ request.query_params.get('pre') }}, Reg: {{ request.query_params.get('reg') }}, Post: {{ request.query_params.get('post') }}.
+  </div>
+{% elif request.query_params.get('err') %}
+  <div class="mb-4 rounded border border-rose-700 bg-rose-900/30 px-3 py-2 text-rose-200 text-sm">
+    Error: {{ request.query_params.get('err') }}
+  </div>
+{% elif request.query_params.get('ok') == 'logos' %}
+  <div class="mb-4 rounded border border-emerald-700 bg-emerald-900/30 px-3 py-2 text-emerald-200 text-sm">
+    Generated offline SVG logos. Created: {{ request.query_params.get('created') }}, Skipped: {{ request.query_params.get('skipped') }}
+  </div>
+{% elif request.query_params.get('ok') == 'logos_refresh' %}
+  <div class="mb-4 rounded border border-emerald-700 bg-emerald-900/30 px-3 py-2 text-emerald-200 text-sm">
+    Refreshed ESPN logo URLs. Updated: {{ request.query_params.get('updated') }}, Skipped: {{ request.query_params.get('skipped') }}
+  </div>
+{% elif request.query_params.get('ok') == 'backfill' %}
+  <div class="mb-4 rounded border border-emerald-700 bg-emerald-900/30 px-3 py-2 text-emerald-200 text-sm">
+    Backfilled Week {{ request.query_params.get('wk') }} ({{ request.query_params.get('year') }}) —
+    Imported schedule updates: {{ request.query_params.get('imported') }}.
+    Games: {{ request.query_params.get('total') }}, With provider IDs: {{ request.query_params.get('withid') }},
+    Updated: {{ request.query_params.get('updated') }}, Marked FINAL: {{ request.query_params.get('final') }}.
+  </div>
+{% endif %}
+
+<div class="grid gap-6 md:grid-cols-2">
+  <div class="glass rounded-xl border border-slate-800 p-5">
+    <div class="font-semibold mb-2">Provider</div>
+    <div class="text-sm text-slate-400 mb-1">Active: <span class="text-slate-200">{{ provider_name }}</span></div>
+    <div class="text-sm text-slate-400">Current Teams in DB: <span class="text-slate-200">{{ team_count }}</span></div>
+    {% if provider_name == 'espn' %}
+      <div class="text-xs text-slate-400 mt-2">With ESPN, <span class="text-slate-200">Import Teams</span> pulls official ESPN logo URLs; these will be used across the app. Offline SVGs (Generate Logos) are only used as fallback.</div>
+    {% else %}
+      <div class="text-xs text-slate-400 mt-2">Using local dictionary. You can switch to ESPN by setting <code class="px-1 rounded bg-slate-800 text-slate-300">PICKEMS_NFL_PROVIDER=espn</code> in your .env and restarting.</div>
+    {% endif %}
+  </div>
+
+  <form method="post" action="/admin/nfl/import-teams" class="glass rounded-xl border border-slate-800 p-5">
+    <div class="font-semibold mb-2">Import Teams</div>
+    <div class="text-sm text-slate-400">Fetch and upsert all NFL teams from the provider into the local database.</div>
+    <div class="mt-3">
+      <button class="bg-cyan-600 hover:bg-cyan-500 transition rounded px-3 py-2 text-sm">Import Teams</button>
+    </div>
+  </form>
+
+  {% if provider_name == 'espn' %}
+  <form method="post" action="/admin/nfl/refresh-logos" class="glass rounded-xl border border-slate-800 p-5">
+    <div class="font-semibold mb-2">Refresh ESPN Logos</div>
+    <div class="text-sm text-slate-400">Update only the stored ESPN logo URLs for teams without altering names or aliases.</div>
+    <div class="mt-3">
+      <button class="bg-cyan-600 hover:bg-cyan-500 transition rounded px-3 py-2 text-sm">Refresh Logos</button>
+    </div>
+  </form>
+  {% endif %}
+
+  <form method="post" action="/admin/nfl/import-season" class="glass rounded-xl border border-slate-800 p-5">
+    <div class="font-semibold mb-2">Import Full Season</div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div>
+        <label class="block text-xs text-slate-400 mb-1">Season Year</label>
+        <input type="number" name="season_year" value="{{ default_year }}" class="bg-slate-900 border border-slate-800 rounded px-2 py-1 w-full">
+      </div>
+      <div class="flex items-center gap-3">
+        <label class="text-xs text-slate-400">Include Preseason</label>
+        <input type="checkbox" name="include_preseason" value="1" checked>
+      </div>
+      <div class="flex items-center gap-3">
+        <label class="text-xs text-slate-400">Include Postseason</label>
+        <input type="checkbox" name="include_postseason" value="1" checked>
+      </div>
+    </div>
+    <div class="text-sm text-slate-400 mt-2">Imports all weeks across selected segments (Pre, Regular, Post). Safe to re-run; games are upserted.</div>
+    <div class="mt-3">
+      <button class="bg-cyan-600 hover:bg-cyan-500 transition rounded px-3 py-2 text-sm">Import Season</button>
+    </div>
+  </form>
+
+  <form method="post" action="/admin/nfl/import-week" class="glass rounded-xl border border-slate-800 p-5">
+    <div class="font-semibold mb-2">Import Week Schedule</div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div>
+        <label class="block text-xs text-slate-400 mb-1">Season Year</label>
+        <input type="number" name="season_year" value="{{ default_year }}" class="bg-slate-900 border border-slate-800 rounded px-2 py-1 w-full">
+      </div>
+      <div>
+        <label class="block text-xs text-slate-400 mb-1">Week #</label>
+        <input type="number" name="week_number" value="1" class="bg-slate-900 border border-slate-800 rounded px-2 py-1 w-full">
+      </div>
+      <div>
+        <label class="block text-xs text-slate-400 mb-1">Season Type</label>
+        <select name="season_type" class="bg-slate-900 border border-slate-800 rounded px-2 py-1 w-full">
+          <option value="1">Preseason</option>
+          <option value="2" selected>Regular</option>
+          <option value="3">Postseason</option>
+        </select>
+      </div>
+    </div>
+    <div class="text-sm text-slate-400 mt-2">Imports or updates games for the specified week. First game time updates the week's lock. ESPN season types: 1=Preseason, 2=Regular, 3=Postseason.</div>
+    <div class="mt-3">
+      <button class="bg-cyan-600 hover:bg-cyan-500 transition rounded px-3 py-2 text-sm">Import Week</button>
+    </div>
+  </form>
+
+  <form method="post" action="/admin/nfl/generate-logos" class="glass rounded-xl border border-slate-800 p-5">
+    <div class="font-semibold mb-2">Generate Offline Logos</div>
+    <div class="text-sm text-slate-400">Create 32 SVG logo placeholders under <code class="px-1 rounded bg-slate-800 text-slate-300">/static/logos/</code> using team abbreviations. Safe to run multiple times.</div>
+    <div class="mt-3">
+      <button class="bg-cyan-600 hover:bg-cyan-500 transition rounded px-3 py-2 text-sm">Generate Logos</button>
+    </div>
+  </form>
+
+  <form method="post" action="/admin/nfl/backfill-week" class="glass rounded-xl border border-slate-800 p-5">
+    <div class="font-semibold mb-2">Backfill Week Results</div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div>
+        <label class="block text-xs text-slate-400 mb-1">Season Year</label>
+        <input type="number" name="season_year" value="{{ default_year }}" class="bg-slate-900 border border-slate-800 rounded px-2 py-1 w-full">
+      </div>
+      <div>
+        <label class="block text-xs text-slate-400 mb-1">Week #</label>
+        <input type="number" name="week_number" value="1" class="bg-slate-900 border border-slate-800 rounded px-2 py-1 w-full">
+      </div>
+      <div>
+        <label class="block text-xs text-slate-400 mb-1">Season Type</label>
+        <select name="season_type" class="bg-slate-900 border border-slate-800 rounded px-2 py-1 w-full">
+          <option value="1">Preseason</option>
+          <option value="2" selected>Regular</option>
+          <option value="3">Postseason</option>
+        </select>
+      </div>
+    </div>
+    <div class="text-sm text-slate-400 mt-2">
+      Fetches current scores and status from the provider for all games in the week and marks finals.
+      Recommended with <span class="text-slate-200">ESPN</span> provider active. Safe to re-run.
+    </div>
+    <div class="mt-3">
+      <button class="bg-cyan-600 hover:bg-cyan-500 transition rounded px-3 py-2 text-sm">Backfill Now</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

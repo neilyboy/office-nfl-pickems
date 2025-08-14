@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.eggs/
+.venv/
+venv/
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# Node
+node_modules/
+
+# Data
+/data/*.db
+/data/*.sqlite
+/data/backups/
+/data/avatars/*
+!data/.gitkeep
+!data/avatars/.gitkeep
+!data/backups/.gitkeep
+
+# Logs
+logs/
+
+# Byte-compiled / optimized / DLL files
+*$py.class
+
+# Docker
+*.pid
+
+# OS
+.DS_Store
+Thumbs.db

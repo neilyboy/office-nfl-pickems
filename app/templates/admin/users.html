@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-6">Users</h1>
+
+{% set err = request.query_params.get('err') %}
+{% set ok = request.query_params.get('ok') %}
+{% if err %}
+  <div class="mb-4 rounded border border-rose-700 bg-rose-950/50 px-4 py-3 text-rose-200 text-sm">Error: {{ err }}</div>
+{% endif %}
+{% if ok %}
+  <div class="mb-4 rounded border border-emerald-700 bg-emerald-950/50 px-4 py-3 text-emerald-200 text-sm">Success.</div>
+{% endif %}
+
+<div class="grid gap-6 md:grid-cols-2">
+  <div class="glass rounded-xl border border-slate-800 p-5">
+    <h2 class="font-semibold mb-4">Create User</h2>
+    <form method="post" action="/admin/users/create" class="space-y-4">
+      <div>
+        <label class="block text-sm mb-1">Username</label>
+        <input name="username" autocomplete="username" required class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm mb-1">Temporary password</label>
+        <input type="password" name="password" autocomplete="new-password" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2" placeholder="Leave blank for default">
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm mb-1">First name</label>
+          <input name="first_name" autocomplete="given-name" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2">
+        </div>
+        <div>
+          <label class="block text-sm mb-1">Last name</label>
+          <input name="last_name" autocomplete="family-name" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2">
+        </div>
+      </div>
+      <label class="inline-flex items-center gap-2 text-sm">
+        <input type="checkbox" name="is_admin" value="1" class="accent-cyan-600">
+        <span>Admin</span>
+      </label>
+      <div class="flex justify-end">
+        <button class="bg-cyan-600 hover:bg-cyan-500 transition rounded px-4 py-2">Create</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="glass rounded-xl border border-slate-800 p-5 overflow-x-auto">
+    <h2 class="font-semibold mb-4">All Users</h2>
+    <table class="w-full text-sm">
+      <thead class="text-slate-400">
+        <tr>
+          <th class="text-left pb-2">Username</th>
+          <th class="text-left pb-2">Name</th>
+          <th class="text-left pb-2">Admin</th>
+          <th class="text-left pb-2">Must change</th>
+          <th class="text-right pb-2">Actions</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-800">
+        {% for u in users %}
+        <tr>
+          <td class="py-2">{{ u.username }}</td>
+          <td class="py-2">{{ (u.first_name or '') ~ ' ' ~ (u.last_name or '') }}</td>
+          <td class="py-2">{{ 'Yes' if u.is_admin else 'No' }}</td>
+          <td class="py-2">{{ 'Yes' if u.must_change_password else 'No' }}</td>
+          <td class="py-2 text-right">
+            <a href="/admin/users/{{ u.id }}" class="text-cyan-300 hover:text-cyan-200">Edit</a>
+            {% if u.id != current_user.id %}
+            <form method="post" action="/admin/users/{{ u.id }}/delete" class="inline ml-3" onsubmit="return confirm('Delete user {{ u.username }}?');">
+              <button class="text-rose-300 hover:text-rose-200">Delete</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

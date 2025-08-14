@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="grid place-items-center">
+  <div class="glass rounded-xl border border-slate-800 p-8 w-full max-w-md shadow-xl">
+    <h1 class="text-2xl font-semibold mb-6">Sign in</h1>
+    {% if request.query_params.get('err') %}
+      <div class="mb-4 text-sm text-rose-300">Invalid username or password</div>
+    {% endif %}
+    <form method="post" action="/login" class="space-y-4">
+      <div>
+        <label class="block text-sm mb-1">Username</label>
+        <input name="username" autocomplete="username" autocapitalize="none" spellcheck="false" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-500" required>
+      </div>
+      <div>
+        <label class="block text-sm mb-1">Password</label>
+        <input type="password" name="password" autocomplete="current-password" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-500" required>
+      </div>
+      <button class="w-full bg-cyan-600 hover:bg-cyan-500 transition rounded px-3 py-2">Login</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

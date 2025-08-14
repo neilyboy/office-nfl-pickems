@@ -1,0 +1,199 @@
+<h1 class="text-2xl font-semibold mb-4">Welcome{{ ' ' + current_user.first_name if current_user else '' }}</h1>
+<div class="htmx-indicator text-xs text-slate-400 mb-2">Updating…</div>
+
+<div class="grid gap-6 md:grid-cols-2">
+  <section class="glass rounded-xl border border-slate-800 p-5">
+    <div class="flex items-center justify-between mb-3">
+      <div class="flex items-center gap-2">
+        {% if prev_week %}
+          <a href="/dashboard?week={{ prev_week.id }}"
+             class="inline-block bg-slate-800 border border-slate-700 hover:bg-slate-700 transition rounded px-2 py-1 text-xs"
+             hx-get="/dashboard/content?week={{ prev_week.id }}"
+             hx-target="#dash-content"
+             hx-push-url="/dashboard?week={{ prev_week.id }}"
+             hx-indicator="#dash-loading">‹ Prev</a>
+        {% else %}
+          <span class="inline-block bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs opacity-40 cursor-not-allowed">‹ Prev</span>
+        {% endif %}
+        <h2 class="font-semibold">This Week</h2>
+        {% if next_week %}
+          <a href="/dashboard?week={{ next_week.id }}"
+             class="inline-block bg-slate-800 border border-slate-700 hover:bg-slate-700 transition rounded px-2 py-1 text-xs"
+             hx-get="/dashboard/content?week={{ next_week.id }}"
+             hx-target="#dash-content"
+             hx-push-url="/dashboard?week={{ next_week.id }}"
+             hx-indicator="#dash-loading">Next ›</a>
+        {% else %}
+          <span class="inline-block bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs opacity-40 cursor-not-allowed">Next ›</span>
+        {% endif %}
+      </div>
+      <div class="flex items-center gap-3">
+        <span id="dash-loading" class="htmx-indicator text-xs text-slate-400">Loading…</span>
+        {% if weeks and weeks|length > 0 and selected_week %}
+          <form method="get" action="/dashboard">
+            <label class="sr-only" for="dash-week">Week</label>
+            <select id="dash-week" name="week" class="bg-slate-900 border border-slate-700 rounded px-3 py-1 text-sm"
+                    hx-get="/dashboard/content"
+                    hx-target="#dash-content"
+                    hx-push-url="true"
+                    hx-include="closest form"
+                    hx-trigger="change"
+                    hx-indicator="#dash-loading">
+              {% for w in weeks %}
+                <option value="{{ w.id }}" {% if w.id == selected_week.id %}selected{% endif %}>Week {{ w.week_number }} ({{ w.season_type_name }})</option>
+              {% endfor %}
+            </select>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+    {% if selected_week %}
+      <div class="flex items-center justify-between">
+        <div>
+          <div class="text-slate-200 text-sm">Your picks</div>
+          <div class="text-xl font-semibold">{{ picks_made }}/{{ total_games }}</div>
+          {% if missing > 0 and needs_picks %}
+            <div class="text-xs text-amber-400 mt-1">{{ missing }} remaining before kickoff</div>
+          {% elif total_games == 0 %}
+            <div class="text-xs text-slate-400 mt-1">No games scheduled</div>
+          {% else %}
+            <div class="text-xs text-emerald-400 mt-1">All set!</div>
+          {% endif %}
+        </div>
+        <div>
+          <a href="/picks?week={{ selected_week.id }}" class="inline-block bg-cyan-600 hover:bg-cyan-500 transition rounded px-3 py-2 text-sm">Go to your Picks</a>
+        </div>
+      </div>
+    {% else %}
+      <div class="text-slate-400 text-sm">No active week available yet.</div>
+    {% endif %}
+  </section>
+  <section class="glass rounded-xl border border-slate-800 p-5">
+    <h2 class="font-semibold mb-3">Leaderboard</h2>
+    {% if leaderboard and leaderboard|length > 0 %}
+      <div class="text-slate-400 text-xs mb-2">Based on {{ decided_games_count }} decided games (FINAL)</div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-slate-400">
+              <th class="text-left font-normal pb-2">User</th>
+              <th class="text-right font-normal pb-2">Correct</th>
+              <th class="text-right font-normal pb-2">Picks</th>
+              <th class="text-right font-normal pb-2">%</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for row in leaderboard %}
+            <tr class="border-t border-slate-800">
+              <td class="py-2">{{ row.name }}</td>
+              <td class="py-2 text-right">{{ row.correct }}</td>
+              <td class="py-2 text-right">{{ row.picks }}</td>
+              <td class="py-2 text-right">{{ '%.1f'|format(row.pct * 100) }}%</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="text-slate-400 text-sm">No decided games yet. Leaderboard will populate as results come in.</div>
+    {% endif %}
+  </section>
+
+  {# Live, auto-refreshing scoreboard with logos, clocks, and who-picked-who #}
+  {% include 'dashboard_live.html' %}
+
+  <section class="glass rounded-xl border border-slate-800 p-5 md:col-span-2">
+    <h2 class="font-semibold mb-3">Lunch</h2>
+    {% if not lunch %}
+      <div class="text-slate-400 text-sm">Lunch standings will appear here once available.</div>
+    {% else %}
+      {% if lunch.status == 'no_week' %}
+        <div class="text-slate-400 text-sm">No active week yet.</div>
+      {% elif lunch.status == 'no_games' %}
+        <div class="text-slate-400 text-sm">No games scheduled for this week.</div>
+      {% elif lunch.status == 'pending' %}
+        <div class="text-slate-400 text-sm">Lunch not decided yet. Decided games: {{ lunch.decided_games }}/{{ lunch.total_games }}.</div>
+      {% elif lunch.status == 'decided' %}
+        <div class="grid gap-4 md:grid-cols-2">
+          <div class="rounded border border-emerald-800 bg-emerald-900/30 p-4">
+            <div class="text-emerald-300 font-semibold mb-2">Winner</div>
+            {% if lunch.winner_users and lunch.winner_users|length > 0 %}
+              {% set maxa = 10 %}
+              {% set extra = (lunch.winner_users | length) - maxa %}
+              <div x-data="{open:false}"
+                   @pointerdown.prevent.stop="open=!open" @click.outside="open=false" @keydown.escape="open=false"
+                   @keydown.enter.prevent="open=!open" @keydown.space.prevent="open=!open"
+                   tabindex="0"
+                   class="mt-1 flex items-center -space-x-2 relative cursor-pointer"
+                   title="{{ (lunch.winner_users | map(attribute='name') | join(', ')) }}">
+                {% for u in lunch.winner_users %}
+                  {% if loop.index0 < maxa %}
+                    <img src="{{ u.avatar_url }}" alt="{{ u.name }}" title="{{ u.name }}" class="w-7 h-7 rounded-full object-cover border border-emerald-800 ring-1 ring-emerald-700">
+                  {% endif %}
+                {% endfor %}
+                {% if extra > 0 %}
+                  <div class="w-7 h-7 rounded-full bg-emerald-800/60 border border-emerald-700 text-[10px] text-emerald-200 flex items-center justify-center" title="+{{ extra }} more: {{ (lunch.winner_users[maxa:] | map(attribute='name') | join(', ')) }}">+{{ extra }}</div>
+                {% endif %}
+                <div x-show="open" x-transition @click.stop class="absolute left-0 top-full mt-2 z-20 max-w-xs rounded-md border border-slate-700 bg-slate-900/95 p-2 text-[11px] text-slate-200 shadow-lg">
+                  <div class="font-medium mb-1">Lunch winner:</div>
+                  <div class="flex flex-wrap gap-1">
+                    {% for u in lunch.winner_users %}
+                      <span class="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700">{{ u.name }}</span>
+                    {% endfor %}
+                  </div>
+                </div>
+              </div>
+              <ul class="list-disc list-inside text-slate-200 text-sm mt-2">
+                {% for name in lunch.winner_names %}
+                  <li>{{ name }}</li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <div class="text-slate-400 text-sm">No winner determined.</div>
+            {% endif %}
+          </div>
+          <div class="rounded border border-rose-800 bg-rose-900/30 p-4">
+            <div class="text-rose-300 font-semibold mb-2">Loser</div>
+            {% if lunch.loser_users and lunch.loser_users|length > 0 %}
+              {% set maxa = 10 %}
+              {% set extra = (lunch.loser_users | length) - maxa %}
+              <div x-data="{open:false}"
+                   @pointerdown.prevent.stop="open=!open" @click.outside="open=false" @keydown.escape="open=false"
+                   @keydown.enter.prevent="open=!open" @keydown.space.prevent="open=!open"
+                   tabindex="0"
+                   class="mt-1 flex items-center -space-x-2 relative cursor-pointer"
+                   title="{{ (lunch.loser_users | map(attribute='name') | join(', ')) }}">
+                {% for u in lunch.loser_users %}
+                  {% if loop.index0 < maxa %}
+                    <img src="{{ u.avatar_url }}" alt="{{ u.name }}" title="{{ u.name }}" class="w-7 h-7 rounded-full object-cover border border-rose-800 ring-1 ring-rose-700">
+                  {% endif %}
+                {% endfor %}
+                {% if extra > 0 %}
+                  <div class="w-7 h-7 rounded-full bg-rose-800/60 border border-rose-700 text-[10px] text-rose-200 flex items-center justify-center" title="+{{ extra }} more: {{ (lunch.loser_users[maxa:] | map(attribute='name') | join(', ')) }}">+{{ extra }}</div>
+                {% endif %}
+                <div x-show="open" x-transition @click.stop class="absolute left-0 top-full mt-2 z-20 max-w-xs rounded-md border border-slate-700 bg-slate-900/95 p-2 text-[11px] text-slate-200 shadow-lg">
+                  <div class="font-medium mb-1">Lunch loser:</div>
+                  <div class="flex flex-wrap gap-1">
+                    {% for u in lunch.loser_users %}
+                      <span class="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700">{{ u.name }}</span>
+                    {% endfor %}
+                  </div>
+                </div>
+              </div>
+              <ul class="list-disc list-inside text-slate-200 text-sm mt-2">
+                {% for name in lunch.loser_names %}
+                  <li>{{ name }}</li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <div class="text-slate-400 text-sm">No losers this week 🎉</div>
+            {% endif %}
+          </div>
+        </div>
+        <div class="text-xs text-slate-400 mt-2">
+          Tiebreaker rules: closest to Monday total points without going over wins ties; if all are over, furthest over loses; missing tiebreaker is worst.
+        </div>
+      {% endif %}
+    {% endif %}
+  </section>
+</div>

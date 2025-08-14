@@ -1,0 +1,522 @@
+<section id="live-board" class="glass rounded-xl border border-slate-800 p-5 md:col-span-2" hx-get="/dashboard/live{% if selected_week or demo_mode or request.query_params.get('demo') %}?{% if selected_week %}week={{ selected_week.id }}{% endif %}{% if (selected_week and (demo_mode or request.query_params.get('demo'))) %}&{% endif %}{% if demo_mode or request.query_params.get('demo') %}demo=1{% endif %}{% endif %}" hx-trigger="load, every {{ refresh_interval|default(60) }}s" hx-swap="outerHTML">
+  <div class="flex items-center justify-between mb-3">
+    <h2 class="font-semibold flex items-center gap-2">
+      Live Scoreboard{% if selected_week %} — Week {{ selected_week.week_number }}{% endif %}
+      {% if live_games and live_games|length > 0 %}
+        <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-600/50 animate-pulse">LIVE</span>
+      {% endif %}
+    </h2>
+    <div class="text-xs text-slate-500">Refresh: {{ refresh_interval|default(60) }}s</div>
+  </div>
+  <div class="htmx-indicator text-xs text-slate-400 mb-2">Refreshing…</div>
+  {% if games is not defined %}
+    {% include 'partials/live_skeleton.html' %}
+  {% elif (not games) or (games|length == 0) %}
+    <div class="text-slate-400 text-sm">No games scheduled yet.</div>
+  {% else %}
+  {% if (not live_games) or (live_games|length == 0) %}
+    <div class="mb-4 rounded-lg border border-slate-800 bg-slate-900/40 p-3 text-xs text-slate-400">
+      During live games, you'll see richer details: possession, down/distance, red zone, timeouts, last play, drive summary, win probability, odds, TV network, venue, and weather.
+    </div>
+  {% endif %}
+
+  {% if demo_mode and demo_live %}
+  <h3 class="text-slate-400 text-xs uppercase tracking-wider mb-2">Demo Live Preview</h3>
+  <div class="grid gap-4 md:grid-cols-2 mb-6">
+    <div class="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+      <div class="text-xs text-slate-400 mb-2">Kickoff: Demo</div>
+      <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="relative">
+            <img src="{{ team_logo(demo_away) }}" class="w-8 h-8 rounded object-contain bg-slate-800 border border-slate-700" alt="{{ demo_away.name if demo_away else 'Away' }}">
+            {% if demo_live.possession == 'away' %}
+              <div class="absolute -top-1 -right-1 text-[10px]" title="Possession">🏈</div>
+            {% endif %}
+          </div>
+          <div class="truncate">
+            <div class="font-semibold truncate">{{ demo_away.abbr if demo_away else 'AWY' }}</div>
+            <div class="text-xs text-slate-400 truncate">{{ demo_away.name if demo_away else 'Away' }}</div>
+            {% if demo_live.away_record %}
+              <div class="text-[10px] text-slate-500">{{ demo_live.away_record }}</div>
+            {% endif %}
+            {% if demo_live.away_timeouts is not none %}
+              <div class="text-[10px] text-slate-500">TO: {{ demo_live.away_timeouts }}</div>
+            {% endif %}
+          </div>
+        </div>
+        <div class="text-center px-3">
+          <div class="text-2xl font-bold tabular-nums">{{ demo_live.away_score }} - {{ demo_live.home_score }}</div>
+          <div class="flex items-center justify-center gap-2">
+            <div class="text-xs text-amber-300">{{ demo_live.display_clock }}{% if demo_live.period %} Q{{ demo_live.period }}{% endif %}</div>
+            {% if demo_live.is_red_zone %}
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-rose-600/20 text-rose-300 border border-rose-700/50">RZ</span>
+            {% endif %}
+          </div>
+          {% if demo_live.down_distance %}
+            <div class="text-[11px] text-slate-300 mt-0.5">{{ demo_live.down_distance }}{% if demo_live.yard_line %} • {{ demo_live.yard_line }}{% endif %}</div>
+          {% endif %}
+          {% if demo_live.last_play %}
+            <div class="text-[10px] text-slate-500 mt-1 line-clamp-2" title="Last play">{{ demo_live.last_play }}</div>
+          {% endif %}
+          {% if demo_live.drive_summary %}
+            <div class="text-[10px] text-slate-500 mt-1" title="Current drive">{{ demo_live.drive_summary }}</div>
+          {% endif %}
+          {% if demo_live.win_prob_home is not none %}
+            {% set hp = (demo_live.win_prob_home | round(0, 'floor')) | int %}
+            {% set ap = 100 - hp %}
+            <div class="mt-2">
+              <div class="h-1.5 w-full rounded bg-slate-800 overflow-hidden flex" title="Home {{ demo_live.win_prob_home }}% • Away {{ demo_live.win_prob_away }}%">
+                <div class="h-full bg-indigo-500/70" style="width: {{ ap }}%;"></div>
+                <div class="h-full bg-cyan-400/70" style="width: {{ hp }}%;"></div>
+              </div>
+              <div class="flex justify-between text-[10px] text-slate-500 mt-0.5">
+                <span>Away {{ demo_live.win_prob_away }}%</span>
+                <span>Home {{ demo_live.win_prob_home }}%</span>
+              </div>
+            </div>
+          {% endif %}
+          {% if (demo_live.odds or demo_live.network or demo_live.venue_name or demo_live.weather) %}
+            <div class="text-[10px] text-slate-500 mt-2 space-y-0.5">
+              {% if demo_live.odds %}<div>Odds: {{ demo_live.odds }}</div>{% endif %}
+              {% if demo_live.network %}<div>TV: {{ demo_live.network }}</div>{% endif %}
+              {% if demo_live.venue_name %}
+                <div>Venue: {{ demo_live.venue_name }}{% if demo_live.venue_city %}, {{ demo_live.venue_city }}{% endif %}{% if demo_live.venue_state %}, {{ demo_live.venue_state }}{% endif %}</div>
+              {% endif %}
+              {% if demo_live.weather %}<div>Weather: {{ demo_live.weather }}</div>{% endif %}
+            </div>
+          {% endif %}
+        </div>
+        <div class="flex items-center gap-3 min-w-0 justify-end">
+          <div class="text-right truncate">
+            <div class="font-semibold truncate">{{ demo_home.abbr if demo_home else 'HOME' }}</div>
+            <div class="text-xs text-slate-400 truncate">{{ demo_home.name if demo_home else 'Home' }}</div>
+            {% if demo_live.home_record %}
+              <div class="text-[10px] text-slate-500">{{ demo_live.home_record }}</div>
+            {% endif %}
+            {% if demo_live.home_timeouts is not none %}
+              <div class="text-[10px] text-slate-500">TO: {{ demo_live.home_timeouts }}</div>
+            {% endif %}
+          </div>
+          <div class="relative">
+            <img src="{{ team_logo(demo_home) }}" class="w-8 h-8 rounded object-contain bg-slate-800 border border-slate-700" alt="{{ demo_home.name if demo_home else 'Home' }}">
+            {% if demo_live.possession == 'home' %}
+              <div class="absolute -top-1 -right-1 text-[10px]" title="Possession">🏈</div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  
+  {% if live_games and live_games|length > 0 %}
+  <h3 class="text-slate-400 text-xs uppercase tracking-wider mb-2">Live Now</h3>
+  <div class="grid gap-4 md:grid-cols-2 mb-6">
+    {% for g in live_games %}
+      {% set home = teams_by_id.get(g.home_team_id) %}
+      {% set away = teams_by_id.get(g.away_team_id) %}
+      {% set live = live_map.get(g.provider_game_id) if g.provider_game_id else None %}
+      <div class="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+        <div class="text-xs text-slate-400 mb-2">Kickoff: {{ g.start_time }}</div>
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="relative">
+              <img src="{{ team_logo(away) }}" class="w-8 h-8 rounded object-contain bg-slate-800 border border-slate-700" alt="{{ away.name if away else 'Away' }}">
+              {% if live and live.is_live and live.possession == 'away' %}
+                <div class="absolute -top-1 -right-1 text-[10px]" title="Possession">🏈</div>
+              {% endif %}
+            </div>
+            <div class="truncate">
+              <div class="font-semibold truncate">{{ away.abbr if away else g.away_team_id }}</div>
+              <div class="text-xs text-slate-400 truncate">{{ away.name if away else 'Away' }}</div>
+              {% if live and live.away_record %}
+                <div class="text-[10px] text-slate-500">{{ live.away_record }}</div>
+              {% endif %}
+              {% if live and live.away_timeouts is not none %}
+                <div class="text-[10px] text-slate-500">TO: {{ live.away_timeouts }}</div>
+              {% endif %}
+            </div>
+          </div>
+          <div class="text-center px-3">
+            <div class="text-2xl font-bold tabular-nums">{{ g.away_score }} - {{ g.home_score }}</div>
+            {% if g.status.name == 'FINAL' or (live and live.is_final) %}
+              <div class="text-xs text-slate-400">Final</div>
+            {% elif live and live.is_live %}
+              <div class="flex items-center justify-center gap-2">
+                <div class="text-xs text-amber-300">{{ live.display_clock or 'Live' }}{% if live.period %} Q{{ live.period }}{% endif %}</div>
+                {% if live.is_red_zone %}
+                  <span class="text-[10px] px-1.5 py-0.5 rounded bg-rose-600/20 text-rose-300 border border-rose-700/50">RZ</span>
+                {% endif %}
+              </div>
+              {% if live.down_distance %}
+                <div class="text-[11px] text-slate-300 mt-0.5">{{ live.down_distance }}{% if live.yard_line %} • {{ live.yard_line }}{% endif %}</div>
+              {% endif %}
+            {% else %}
+              <div class="text-xs text-slate-400">Scheduled</div>
+            {% endif %}
+            {% if live and live.is_live and live.last_play %}
+              <div class="text-[10px] text-slate-500 mt-1 line-clamp-2" title="Last play">{{ live.last_play }}</div>
+            {% endif %}
+            {% if live and live.is_live and live.drive_summary %}
+              <div class="text-[10px] text-slate-500 mt-1" title="Current drive">{{ live.drive_summary }}</div>
+            {% endif %}
+            {% if live and live.win_prob_home is not none %}
+              {% set hp = (live.win_prob_home | round(0, 'floor')) | int %}
+              {% set ap = 100 - hp %}
+              <div class="mt-2">
+                <div class="h-1.5 w-full rounded bg-slate-800 overflow-hidden flex" title="Home {{ live.win_prob_home }}% • Away {{ live.win_prob_away }}%">
+                  <div class="h-full bg-indigo-500/70" style="width: {{ ap }}%;"></div>
+                  <div class="h-full bg-cyan-400/70" style="width: {{ hp }}%;"></div>
+                </div>
+                <div class="flex justify-between text-[10px] text-slate-500 mt-0.5">
+                  <span>Away {{ live.win_prob_away }}%</span>
+                  <span>Home {{ live.win_prob_home }}%</span>
+                </div>
+              </div>
+            {% endif %}
+            {% if live and (live.odds or live.network or live.venue_name or live.weather) %}
+              <div class="text-[10px] text-slate-500 mt-2 space-y-0.5">
+                {% if live.odds %}<div>Odds: {{ live.odds }}</div>{% endif %}
+                {% if live.network %}<div>TV: {{ live.network }}</div>{% endif %}
+                {% if live.venue_name %}
+                  <div>Venue: {{ live.venue_name }}{% if live.venue_city %}, {{ live.venue_city }}{% endif %}{% if live.venue_state %}, {{ live.venue_state }}{% endif %}</div>
+                {% endif %}
+                {% if live.weather %}<div>Weather: {{ live.weather }}</div>{% endif %}
+              </div>
+            {% endif %}
+          </div>
+          <div class="flex items-center gap-3 min-w-0 justify-end">
+            <div class="text-right truncate">
+              <div class="font-semibold truncate">{{ home.abbr if home else g.home_team_id }}</div>
+              <div class="text-xs text-slate-400 truncate">{{ home.name if home else 'Home' }}</div>
+              {% if live and live.home_record %}
+                <div class="text-[10px] text-slate-500">{{ live.home_record }}</div>
+              {% endif %}
+              {% if live and live.home_timeouts is not none %}
+                <div class="text-[10px] text-slate-500">TO: {{ live.home_timeouts }}</div>
+              {% endif %}
+            </div>
+            <div class="relative">
+              <img src="{{ team_logo(home) }}" class="w-8 h-8 rounded object-contain bg-slate-800 border border-slate-700" alt="{{ home.name if home else 'Home' }}">
+              {% if live and live.is_live and live.possession == 'home' %}
+                <div class="absolute -top-1 -right-1 text-[10px]" title="Possession">🏈</div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-3 grid grid-cols-2 gap-3 text-xs">
+          <div class="rounded border border-slate-800 p-2">
+            <div class="text-slate-400">Picked {{ away.abbr if away else 'Away' }}</div>
+            {% set ps = picks_summary.get(g.id) %}
+            <div class="font-semibold">{{ ps.away_count if ps else 0 }}</div>
+            {% if ps and selected_week and selected_week.is_locked() and ps.away_users %}
+              {% set maxa = 10 %}
+              {% set extra = (ps.away_users | length) - maxa %}
+              <div x-data="{open:false}" @pointerdown.prevent.stop="open=!open" @click.outside="open=false" @keydown.escape="open=false" @keydown.enter.prevent="open=!open" @keydown.space.prevent="open=!open" tabindex="0" class="mt-1 flex items-center -space-x-2 relative cursor-pointer" title="{{ (ps.away_users | map(attribute='name') | join(', ')) }}">
+                {% for u in ps.away_users %}
+                  {% if loop.index0 < maxa %}
+                    <img src="{{ u.avatar_url }}" alt="{{ u.name }}" title="{{ u.name }}" class="w-6 h-6 rounded-full object-cover border border-slate-700 ring-1 ring-slate-800">
+                  {% endif %}
+                {% endfor %}
+                {% if extra > 0 %}
+                  <div class="w-6 h-6 rounded-full bg-slate-800 border border-slate-700 text-[10px] text-slate-300 flex items-center justify-center" title="+{{ extra }} more: {{ (ps.away_users[maxa:] | map(attribute='name') | join(', ')) }}">+{{ extra }}</div>
+                {% endif %}
+                <div x-show="open" x-transition @click.stop class="absolute left-0 top-full mt-2 z-20 max-w-xs rounded-md border border-slate-700 bg-slate-900/95 p-2 text-[11px] text-slate-200 shadow-lg">
+                  <div class="font-medium mb-1">Picked {{ away.abbr if away else 'Away' }}:</div>
+                  <div class="flex flex-wrap gap-1">
+                    {% for u in ps.away_users %}
+                      <span class="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700">{{ u.name }}</span>
+                    {% endfor %}
+                  </div>
+                </div>
+              </div>
+            {% endif %}
+          </div>
+          <div class="rounded border border-slate-800 p-2">
+            <div class="text-slate-400">Picked {{ home.abbr if home else 'Home' }}</div>
+            <div class="font-semibold">{{ ps.home_count if ps else 0 }}</div>
+            {% if ps and selected_week and selected_week.is_locked() and ps.home_users %}
+              {% set maxa = 10 %}
+              {% set extra = (ps.home_users | length) - maxa %}
+              <div x-data="{open:false}" @pointerdown.prevent.stop="open=!open" @click.outside="open=false" @keydown.escape="open=false" @keydown.enter.prevent="open=!open" @keydown.space.prevent="open=!open" tabindex="0" class="mt-1 flex items-center justify-end -space-x-2 relative cursor-pointer" title="{{ (ps.home_users | map(attribute='name') | join(', ')) }}">
+                {% for u in ps.home_users %}
+                  {% if loop.index0 < maxa %}
+                    <img src="{{ u.avatar_url }}" alt="{{ u.name }}" title="{{ u.name }}" class="w-6 h-6 rounded-full object-cover border border-slate-700 ring-1 ring-slate-800">
+                  {% endif %}
+                {% endfor %}
+                {% if extra > 0 %}
+                  <div class="w-6 h-6 rounded-full bg-slate-800 border border-slate-700 text-[10px] text-slate-300 flex items-center justify-center" title="+{{ extra }} more: {{ (ps.home_users[maxa:] | map(attribute='name') | join(', ')) }}">+{{ extra }}</div>
+                {% endif %}
+                <div x-show="open" x-transition @click.stop class="absolute right-0 top-full mt-2 z-20 max-w-xs rounded-md border border-slate-700 bg-slate-900/95 p-2 text-[11px] text-slate-200 shadow-lg">
+                  <div class="font-medium mb-1">Picked {{ home.abbr if home else 'Home' }}:</div>
+                  <div class="flex flex-wrap gap-1 justify-end">
+                    {% for u in ps.home_users %}
+                      <span class="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700">{{ u.name }}</span>
+                    {% endfor %}
+                  </div>
+                </div>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+
+        {% if ps %}
+          {% set hc = ps.home_count %}
+          {% set ac = ps.away_count %}
+          {% set total = (hc + ac) %}
+          {% set hp = (hc * 100 // total) if total > 0 else 0 %}
+          {% set ap = 100 - hp %}
+          <div class="mt-2 h-1.5 w-full rounded bg-slate-800 overflow-hidden flex" title="Away {{ ac }} • Home {{ hc }}">
+            <div class="h-full bg-indigo-500/70" style="width: {{ ap|default(0) }}%;"></div>
+            <div class="h-full bg-cyan-400/70" style="width: {{ hp|default(0) }}%;"></div>
+          </div>
+        {% endif %}
+
+        {% if ps and (ps.home_all or ps.away_all) %}
+          <details class="mt-2 text-xs">
+            <summary class="cursor-pointer text-slate-400 hover:text-slate-300">See all picks</summary>
+            <div class="mt-1 grid grid-cols-2 gap-3">
+              <div>
+                <div class="text-slate-400">Away</div>
+                <div class="text-slate-300">{{ ', '.join(ps.away_all) if ps.away_all else '—' }}</div>
+              </div>
+              <div>
+                <div class="text-slate-400">Home</div>
+                <div class="text-slate-300">{{ ', '.join(ps.home_all) if ps.home_all else '—' }}</div>
+              </div>
+            </div>
+          </details>
+        {% endif %}
+
+        {% set up = user_picks.get(g.id) if user_picks else None %}
+        {% if up %}
+          <div class="mt-2 text-xs text-cyan-300 flex items-center gap-2">
+            <span>You picked {{ home.abbr if up == g.home_team_id else away.abbr if up == g.away_team_id else '—' }}.</span>
+            {% if g.status.name == 'FINAL' %}
+              {% set winner = g.home_team_id if (g.home_score or 0) > (g.away_score or 0) else (g.away_team_id if (g.away_score or 0) > (g.home_score or 0) else None) %}
+              {% if winner and up == winner %}
+                <span class="px-1.5 py-0.5 rounded text-[10px] bg-emerald-600/20 text-emerald-300 border border-emerald-700/50">Correct</span>
+              {% elif winner %}
+                <span class="px-1.5 py-0.5 rounded text-[10px] bg-rose-600/20 text-rose-300 border border-rose-700/50">Wrong</span>
+              {% endif %}
+            {% endif %}
+          </div>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if upcoming_games and upcoming_games|length > 0 %}
+  <h3 class="text-slate-400 text-xs uppercase tracking-wider mb-2">Upcoming</h3>
+  <div class="grid gap-4 md:grid-cols-2 mb-6">
+    {% for g in upcoming_games %}
+      {% set home = teams_by_id.get(g.home_team_id) %}
+      {% set away = teams_by_id.get(g.away_team_id) %}
+      {% set live = live_map.get(g.provider_game_id) if g.provider_game_id else None %}
+      <div class="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+        <div class="text-xs text-slate-400 mb-2">Kickoff: {{ g.start_time }}</div>
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-3 min-w-0">
+            <img src="{{ team_logo(away) }}" class="w-8 h-8 rounded object-contain bg-slate-800 border border-slate-700" alt="{{ away.name if away else 'Away' }}">
+            <div class="truncate">
+              <div class="font-semibold truncate">{{ away.abbr if away else g.away_team_id }}</div>
+              <div class="text-xs text-slate-400 truncate">{{ away.name if away else 'Away' }}</div>
+            </div>
+          </div>
+          <div class="text-center px-3">
+            <div class="text-2xl font-bold tabular-nums">{{ g.away_score }} - {{ g.home_score }}</div>
+            <div class="text-xs text-slate-400">Scheduled</div>
+            {% if live %}
+              {% if live.odds %}
+                <div class="text-[10px] text-slate-500 mt-1">Odds: {{ live.odds }}</div>
+              {% endif %}
+              {% if live.network %}
+                <div class="text-[10px] text-slate-500">TV: {{ live.network }}</div>
+              {% endif %}
+              {% if live.venue_name %}
+                <div class="text-[10px] text-slate-500">Venue: {{ live.venue_name }}{% if live.venue_city %}, {{ live.venue_city }}{% endif %}{% if live.venue_state %}, {{ live.venue_state }}{% endif %}</div>
+              {% endif %}
+              {% if live.weather %}
+                <div class="text-[10px] text-slate-500">Weather: {{ live.weather }}</div>
+              {% endif %}
+            {% endif %}
+          </div>
+          <div class="flex items-center gap-3 min-w-0 justify-end">
+            <div class="text-right truncate">
+              <div class="font-semibold truncate">{{ home.abbr if home else g.home_team_id }}</div>
+              <div class="text-xs text-slate-400 truncate">{{ home.name if home else 'Home' }}</div>
+            </div>
+            <img src="{{ team_logo(home) }}" class="w-8 h-8 rounded object-contain bg-slate-800 border border-slate-700" alt="{{ home.name if home else 'Home' }}">
+          </div>
+        </div>
+
+        <div class="mt-3 grid grid-cols-2 gap-3 text-xs">
+          <div class="rounded border border-slate-800 p-2">
+            <div class="text-slate-400">Picked {{ away.abbr if away else 'Away' }}</div>
+            {% set ps = picks_summary.get(g.id) %}
+            <div class="font-semibold">{{ ps.away_count if ps else 0 }}</div>
+            {% if ps and selected_week and selected_week.is_locked() and ps.away_users %}
+              {% set maxa = 10 %}
+              {% set extra = (ps.away_users | length) - maxa %}
+              <div x-data="{open:false}" @pointerdown.prevent.stop="open=!open" @click.outside="open=false" @keydown.escape="open=false" @keydown.enter.prevent="open=!open" @keydown.space.prevent="open=!open" tabindex="0" class="mt-1 flex items-center -space-x-2 relative cursor-pointer" title="{{ (ps.away_users | map(attribute='name') | join(', ')) }}">
+                {% for u in ps.away_users %}
+                  {% if loop.index0 < maxa %}
+                    <img src="{{ u.avatar_url }}" alt="{{ u.name }}" title="{{ u.name }}" class="w-6 h-6 rounded-full object-cover border border-slate-700 ring-1 ring-slate-800">
+                  {% endif %}
+                {% endfor %}
+                {% if extra > 0 %}
+                  <div class="w-6 h-6 rounded-full bg-slate-800 border border-slate-700 text-[10px] text-slate-300 flex items-center justify-center" title="+{{ extra }} more: {{ (ps.away_users[maxa:] | map(attribute='name') | join(', ')) }}">+{{ extra }}</div>
+                {% endif %}
+                <div x-show="open" x-transition @click.stop class="absolute left-0 top-full mt-2 z-20 max-w-xs rounded-md border border-slate-700 bg-slate-900/95 p-2 text-[11px] text-slate-200 shadow-lg">
+                  <div class="font-medium mb-1">Picked {{ away.abbr if away else 'Away' }}:</div>
+                  <div class="flex flex-wrap gap-1">
+                    {% for u in ps.away_users %}
+                      <span class="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700">{{ u.name }}</span>
+                    {% endfor %}
+                  </div>
+                </div>
+              </div>
+            {% endif %}
+          </div>
+          <div class="rounded border border-slate-800 p-2">
+            <div class="text-slate-400">Picked {{ home.abbr if home else 'Home' }}</div>
+            <div class="font-semibold">{{ ps.home_count if ps else 0 }}</div>
+            {% if ps and selected_week and selected_week.is_locked() and ps.home_users %}
+              {% set maxa = 10 %}
+              {% set extra = (ps.home_users | length) - maxa %}
+              <div x-data="{open:false}" @pointerdown.prevent.stop="open=!open" @click.outside="open=false" @keydown.escape="open=false" @keydown.enter.prevent="open=!open" @keydown.space.prevent="open=!open" tabindex="0" class="mt-1 flex items-center justify-end -space-x-2 relative cursor-pointer" title="{{ (ps.home_users | map(attribute='name') | join(', ')) }}">
+                {% for u in ps.home_users %}
+                  {% if loop.index0 < maxa %}
+                    <img src="{{ u.avatar_url }}" alt="{{ u.name }}" title="{{ u.name }}" class="w-6 h-6 rounded-full object-cover border border-slate-700 ring-1 ring-slate-800">
+                  {% endif %}
+                {% endfor %}
+                {% if extra > 0 %}
+                  <div class="w-6 h-6 rounded-full bg-slate-800 border border-slate-700 text-[10px] text-slate-300 flex items-center justify-center" title="+{{ extra }} more: {{ (ps.home_users[maxa:] | map(attribute='name') | join(', ')) }}">+{{ extra }}</div>
+                {% endif %}
+                <div x-show="open" x-transition @click.stop class="absolute right-0 top-full mt-2 z-20 max-w-xs rounded-md border border-slate-700 bg-slate-900/95 p-2 text-[11px] text-slate-200 shadow-lg">
+                  <div class="font-medium mb-1">Picked {{ home.abbr if home else 'Home' }}:</div>
+                  <div class="flex flex-wrap gap-1 justify-end">
+                    {% for u in ps.home_users %}
+                      <span class="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700">{{ u.name }}</span>
+                    {% endfor %}
+                  </div>
+                </div>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+
+        {% if ps and (ps.home_all or ps.away_all) %}
+          <details class="mt-2 text-xs">
+            <summary class="cursor-pointer text-slate-400 hover:text-slate-300">See all picks</summary>
+            <div class="mt-1 grid grid-cols-2 gap-3">
+              <div>
+                <div class="text-slate-400">Away</div>
+                <div class="text-slate-300">{{ ', '.join(ps.away_all) if ps.away_all else '—' }}</div>
+              </div>
+              <div>
+                <div class="text-slate-400">Home</div>
+                <div class="text-slate-300">{{ ', '.join(ps.home_all) if ps.home_all else '—' }}</div>
+              </div>
+            </div>
+          </details>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if final_games and final_games|length > 0 %}
+  <h3 class="text-slate-400 text-xs uppercase tracking-wider mb-2">Final</h3>
+  <div class="grid gap-4 md:grid-cols-2">
+    {% for g in final_games %}
+      {% set home = teams_by_id.get(g.home_team_id) %}
+      {% set away = teams_by_id.get(g.away_team_id) %}
+      {% set live = live_map.get(g.provider_game_id) if g.provider_game_id else None %}
+      <div class="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+        <div class="text-xs text-slate-400 mb-2">Kickoff: {{ g.start_time }}</div>
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-3 min-w-0">
+            <img src="{{ team_logo(away) }}" class="w-8 h-8 rounded object-contain bg-slate-800 border border-slate-700" alt="{{ away.name if away else 'Away' }}">
+            <div class="truncate">
+              <div class="font-semibold truncate">{{ away.abbr if away else g.away_team_id }}</div>
+              <div class="text-xs text-slate-400 truncate">{{ away.name if away else 'Away' }}</div>
+            </div>
+          </div>
+          <div class="text-center px-3">
+            <div class="text-2xl font-bold tabular-nums">{{ g.away_score }} - {{ g.home_score }}</div>
+            <div class="text-xs text-slate-400">Final</div>
+          </div>
+          <div class="flex items-center gap-3 min-w-0 justify-end">
+            <div class="text-right truncate">
+              <div class="font-semibold truncate">{{ home.abbr if home else g.home_team_id }}</div>
+              <div class="text-xs text-slate-400 truncate">{{ home.name if home else 'Home' }}</div>
+            </div>
+            <img src="{{ team_logo(home) }}" class="w-8 h-8 rounded object-contain bg-slate-800 border border-slate-700" alt="{{ home.name if home else 'Home' }}">
+          </div>
+        </div>
+
+        <div class="mt-3 grid grid-cols-2 gap-3 text-xs">
+          <div class="rounded border border-slate-800 p-2">
+            <div class="text-slate-400">Picked {{ away.abbr if away else 'Away' }}</div>
+            {% set ps = picks_summary.get(g.id) %}
+            <div class="font-semibold">{{ ps.away_count if ps else 0 }}</div>
+            {% if ps and selected_week and selected_week.is_locked() and ps.away_users %}
+              {% set maxa = 10 %}
+             {% set extra = (ps.away_users | length) - maxa %}
+              <div x-data="{open:false}" @pointerdown.prevent.stop="open=!open" @click.outside="open=false" @keydown.escape="open=false" @keydown.enter.prevent="open=!open" @keydown.space.prevent="open=!open" tabindex="0" class="mt-1 flex items-center -space-x-2 relative cursor-pointer" title="{{ (ps.away_users | map(attribute='name') | join(', ')) }}">
+                {% for u in ps.away_users %}
+                  {% if loop.index0 < maxa %}
+                    <img src="{{ u.avatar_url }}" alt="{{ u.name }}" title="{{ u.name }}" class="w-6 h-6 rounded-full object-cover border border-slate-700 ring-1 ring-slate-800">
+                  {% endif %}
+                {% endfor %}
+                {% if extra > 0 %}
+                  <div class="w-6 h-6 rounded-full bg-slate-800 border border-slate-700 text-[10px] text-slate-300 flex items-center justify-center" title="+{{ extra }} more: {{ (ps.away_users[maxa:] | map(attribute='name') | join(', ')) }}">+{{ extra }}</div>
+                {% endif %}
+                <div x-show="open" x-transition @click.stop class="absolute left-0 top-full mt-2 z-20 max-w-xs rounded-md border border-slate-700 bg-slate-900/95 p-2 text-[11px] text-slate-200 shadow-lg">
+                  <div class="font-medium mb-1">Picked {{ away.abbr if away else 'Away' }}:</div>
+                  <div class="flex flex-wrap gap-1">
+                    {% for u in ps.away_users %}
+                      <span class="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700">{{ u.name }}</span>
+                    {% endfor %}
+                  </div>
+                </div>
+              </div>
+            {% endif %}
+          </div>
+          <div class="rounded border border-slate-800 p-2">
+            <div class="text-slate-400">Picked {{ home.abbr if home else 'Home' }}</div>
+            <div class="font-semibold">{{ ps.home_count if ps else 0 }}</div>
+            {% if ps and selected_week and selected_week.is_locked() and ps.home_users %}
+              {% set maxa = 10 %}
+              {% set extra = (ps.home_users | length) - maxa %}
+              <div x-data="{open:false}" @pointerdown.prevent.stop="open=!open" @click.outside="open=false" @keydown.escape="open=false" @keydown.enter.prevent="open=!open" @keydown.space.prevent="open=!open" tabindex="0" class="mt-1 flex items-center justify-end -space-x-2 relative cursor-pointer" title="{{ (ps.home_users | map(attribute='name') | join(', ')) }}">
+                {% for u in ps.home_users %}
+                  {% if loop.index0 < maxa %}
+                    <img src="{{ u.avatar_url }}" alt="{{ u.name }}" title="{{ u.name }}" class="w-6 h-6 rounded-full object-cover border border-slate-700 ring-1 ring-slate-800">
+                  {% endif %}
+                {% endfor %}
+                {% if extra > 0 %}
+                  <div class="w-6 h-6 rounded-full bg-slate-800 border border-slate-700 text-[10px] text-slate-300 flex items-center justify-center" title="+{{ extra }} more: {{ (ps.home_users[maxa:] | map(attribute='name') | join(', ')) }}">+{{ extra }}</div>
+                {% endif %}
+                <div x-show="open" x-transition @click.stop class="absolute right-0 top-full mt-2 z-20 max-w-xs rounded-md border border-slate-700 bg-slate-900/95 p-2 text-[11px] text-slate-200 shadow-lg">
+                  <div class="font-medium mb-1">Picked {{ home.abbr if home else 'Home' }}:</div>
+                  <div class="flex flex-wrap gap-1 justify-end">
+                    {% for u in ps.home_users %}
+                      <span class="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700">{{ u.name }}</span>
+                    {% endfor %}
+                  </div>
+                </div>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% endif %}
+</section>

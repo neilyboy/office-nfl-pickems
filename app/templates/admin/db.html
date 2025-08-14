@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-6">Database Management</h1>
+
+{# flash messages from query params #}
+{% set ok = request.query_params.get('ok') %}
+{% set err = request.query_params.get('err') %}
+{% if ok %}
+  <div class="mb-4 rounded border border-emerald-800 bg-emerald-900/30 text-emerald-200 px-4 py-3">
+    {% if ok == 'backup' %}Backup created successfully.{% elif ok == 'restored' %}Database restored successfully.{% elif ok == 'cleared' %}Database cleared and re-initialized.{% elif ok == 'deleted' %}Backup deleted.{% else %}Success.{% endif %}
+  </div>
+{% endif %}
+{% if err %}
+  <div class="mb-4 rounded border border-rose-800 bg-rose-900/30 text-rose-200 px-4 py-3">
+    {% if err == 'badname' %}Invalid backup name.{% elif err == 'notfound' %}Backup file not found.{% elif err == 'dev_only' %}This action is only available in development.{% elif err == 'bad_file' %}Invalid file. Please upload a raw SQLite .db file.{% elif err == 'bad_archive' %}Invalid archive. Please upload a .tar.gz created by this app.{% elif err == 'delete_failed' %}Failed to delete backup.{% else %}An error occurred.{% endif %}
+  </div>
+{% endif %}
+
+<div class="grid gap-6 md:grid-cols-2">
+  <div class="glass rounded-xl border border-slate-800 p-5">
+    <div class="font-semibold mb-2">Create Backup</div>
+    <div class="text-sm text-slate-400 mb-3">Backups include the SQLite database and uploaded avatars.</div>
+    <form method="post" action="/admin/db/backup">
+      <button class="bg-cyan-600 hover:bg-cyan-500 transition rounded px-3 py-2 text-sm">Create Backup</button>
+    </form>
+  </div>
+
+  <div class="glass rounded-xl border border-slate-800 p-5">
+    <div class="font-semibold mb-2">Backups</div>
+    {% if backups and backups|length > 0 %}
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead>
+            <tr class="text-slate-300/70">
+              <th class="text-left py-2 pr-4">Name</th>
+              <th class="text-left py-2 pr-4">Modified</th>
+              <th class="text-left py-2 pr-4">Size</th>
+              <th class="text-left py-2">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for b in backups %}
+            <tr class="border-t border-slate-800/80">
+              <td class="py-2 pr-4 font-mono">{{ b.name }}</td>
+              <td class="py-2 pr-4">{{ b.mtime }}</td>
+              <td class="py-2 pr-4" title="{{ b.size }} bytes">{{ b.size_hr }}</td>
+              <td class="py-2">
+                <div class="flex items-center gap-4">
+                  <a class="text-cyan-400 hover:text-cyan-300" href="/admin/db/backup/{{ b.name }}">Download</a>
+                  <form method="post" action="/admin/db/delete/{{ b.name }}" class="inline" onsubmit="return confirm('Delete backup {{ b.name }}? This cannot be undone.');">
+                    <button type="submit" class="text-rose-400 hover:text-rose-300">Delete</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="text-sm text-slate-400">No backups yet. Create one to get started.</div>
+    {% endif %}
+  </div>
+
+  {% if env == 'development' %}
+  <div class="glass rounded-xl border border-slate-800 p-5">
+    <div class="font-semibold mb-2">Restore (Dev Only)</div>
+    <div class="text-sm text-slate-400 mb-3">Upload a raw SQLite <code>.db</code> file to replace the current database. A copy of the current DB will be saved as <code>pre-restore-YYYYMMDD_HHMMSS.db</code> in the backups folder.</div>
+    <form method="post" action="/admin/db/restore" enctype="multipart/form-data" class="flex items-center gap-3 mb-4">
+      <input type="file" name="upload" accept=".db" class="text-sm" required>
+      <button class="bg-amber-600 hover:bg-amber-500 transition rounded px-3 py-2 text-sm">Restore</button>
+    </form>
+    <div class="text-sm text-slate-400 mb-3">Or restore from a backup archive (<code>.tar.gz</code>) to replace the DB and avatars directory.</div>
+    <form method="post" action="/admin/db/restore-archive" enctype="multipart/form-data" class="flex items-center gap-3">
+      <input type="file" name="upload" accept=".tar.gz" class="text-sm" required>
+      <button class="bg-amber-600 hover:bg-amber-500 transition rounded px-3 py-2 text-sm">Restore from Archive</button>
+    </form>
+  </div>
+
+  <div class="glass rounded-xl border border-slate-800 p-5">
+    <div class="font-semibold mb-2">Clear Database (Dev Only)</div>
+    <div class="text-sm text-slate-400 mb-3">Drops and recreates all tables. You will need to set up the admin account again on next visit.</div>
+    <form method="post" action="/admin/db/clear" onsubmit="return confirm('Are you sure you want to DROP and RECREATE all tables? This cannot be undone.');">
+      <button class="bg-rose-700 hover:bg-rose-600 transition rounded px-3 py-2 text-sm">Clear Database</button>
+    </form>
+  </div>
+  {% else %}
+  <div class="glass rounded-xl border border-slate-800 p-5 md:col-span-2">
+    <div class="font-semibold mb-2">Production Notes</div>
+    <div class="text-sm text-slate-400">Restore and Clear are disabled in production. Use backups to download data, and perform restores via deployment procedures or by replacing the database file offline.</div>
+  </div>
+  {% endif %}
+</div>
+
+<div class="mt-8">
+  <a class="text-slate-400 hover:text-slate-200" href="/admin">← Back to Admin</a>
+</div>
+{% endblock %}

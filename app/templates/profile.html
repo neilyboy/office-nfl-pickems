@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-6">Profile</h1>
+<div class="grid gap-6 md:grid-cols-2">
+  <form method="post" action="/profile" class="glass rounded-xl border border-slate-800 p-5 space-y-4">
+    <h2 class="font-semibold">Basic Info</h2>
+    <div>
+      <label class="block text-sm mb-1">First name</label>
+      <input name="first_name" value="{{ current_user.first_name or '' }}" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2">
+    </div>
+    <div>
+      <label class="block text-sm mb-1">Last name</label>
+      <input name="last_name" value="{{ current_user.last_name or '' }}" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2">
+    </div>
+    <div class="flex justify-end">
+      <button class="bg-cyan-600 hover:bg-cyan-500 transition rounded px-4 py-2">Save</button>
+    </div>
+  </form>
+
+  <div class="glass rounded-xl border border-slate-800 p-5 space-y-4">
+    <h2 class="font-semibold">Avatar</h2>
+    <div class="flex items-center gap-4">
+      {% if current_user.avatar_path %}
+        <img src="{{ current_user.avatar_path }}" alt="Avatar" class="w-24 h-24 rounded-full object-cover border border-slate-700">
+      {% else %}
+        <img src="{{ default_avatar(current_user) }}" alt="Default avatar" class="w-24 h-24 rounded-full object-cover border border-slate-700">
+      {% endif %}
+    </div>
+    <form method="post" action="/profile/avatar" enctype="multipart/form-data" class="space-y-3">
+      <input type="file" name="file" accept="image/png,image/jpeg,image/webp,image/gif" class="block w-full text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-cyan-600 file:text-white hover:file:bg-cyan-500">
+      <div class="text-xs text-slate-400">Images are center-cropped to a square and resized to 256x256.</div>
+      <div class="flex justify-end">
+        <button class="bg-cyan-600 hover:bg-cyan-500 transition rounded px-4 py-2">Upload</button>
+      </div>
+    </form>
+    {% if current_user.avatar_path %}
+    <form method="post" action="/profile/avatar/delete">
+      <button class="text-rose-300 hover:text-rose-200 text-sm" onclick="return confirm('Remove your avatar?')">Remove avatar</button>
+    </form>
+    {% endif %}
+    {% if request.query_params.get('error') == 'bad_file_type' %}
+      <div class="text-amber-300 text-xs">Unsupported image type. Use PNG, JPG, WEBP, or GIF.</div>
+    {% elif request.query_params.get('error') == 'install_pillow' %}
+      <div class="text-amber-300 text-xs">Image processing not available. Please install Pillow.</div>
+    {% elif request.query_params.get('ok') in ['avatar','avatar_deleted'] %}
+      <div class="text-emerald-300 text-xs">Avatar updated.</div>
+    {% endif %}
+  </div>
+
+  <form method="post" action="/profile/change-password" class="glass rounded-xl border border-slate-800 p-5 space-y-4">
+    <div class="flex items-center justify-between">
+      <h2 class="font-semibold">Change Password</h2>
+      {% if force %}<span class="text-amber-300 text-xs">Required on first login</span>{% endif %}
+    </div>
+    <div>
+      <label class="block text-sm mb-1">Account</label>
+      <input type="text" name="username" value="{{ current_user.username }}" autocomplete="username" readonly class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 opacity-80 cursor-not-allowed">
+    </div>
+    <div>
+      <label class="block text-sm mb-1">New password</label>
+      <input type="password" name="password" autocomplete="new-password" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2" required>
+    </div>
+    <div class="flex justify-end">
+      <button class="bg-cyan-600 hover:bg-cyan-500 transition rounded px-4 py-2">Update Password</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

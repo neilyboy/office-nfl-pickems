@@ -1,0 +1,118 @@
+<div class="flex items-center justify-between mb-3">
+  <div class="flex items-center gap-2 text-sm">
+    {% if prev_week %}
+      <a href="/picks?week={{ prev_week.id }}"
+         class="inline-block bg-slate-800 border border-slate-700 hover:bg-slate-700 transition rounded px-2 py-1 text-xs"
+         hx-get="/picks/content?week={{ prev_week.id }}"
+         hx-target="#picks-content"
+         hx-push-url="/picks?week={{ prev_week.id }}"
+         hx-indicator="#picks-loading">‹ Prev</a>
+    {% else %}
+      <span class="inline-block bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs opacity-40 cursor-not-allowed">‹ Prev</span>
+    {% endif %}
+    <span class="font-semibold">Week {{ selected_week.week_number if selected_week else '' }} • {{ selected_week.season_type_name if selected_week else '' }}</span>
+    {% if next_week %}
+      <a href="/picks?week={{ next_week.id }}"
+         class="inline-block bg-slate-800 border border-slate-700 hover:bg-slate-700 transition rounded px-2 py-1 text-xs"
+         hx-get="/picks/content?week={{ next_week.id }}"
+         hx-target="#picks-content"
+         hx-push-url="/picks?week={{ next_week.id }}"
+         hx-indicator="#picks-loading">Next ›</a>
+    {% else %}
+      <span class="inline-block bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs opacity-40 cursor-not-allowed">Next ›</span>
+    {% endif %}
+  </div>
+  <div>
+    <span id="picks-loading" class="htmx-indicator text-xs text-slate-400">Loading…</span>
+  </div>
+</div>
+
+{% if ok %}
+  <div class="mb-4 rounded border border-emerald-700 bg-emerald-900/40 text-emerald-300 px-4 py-3">Picks saved.</div>
+{% endif %}
+{% if err %}
+  <div class="mb-4 rounded border border-rose-700 bg-rose-900/40 text-rose-300 px-4 py-3">
+    {% if err == 'locked' %}Picks are locked for this week.{% endif %}
+    {% if err == 'noweek' %}Invalid week selected.{% endif %}
+    {% if err == 'tb_invalid' %}Tiebreaker must be a non-negative integer.{% endif %}
+    {% if err == 'tb_unique' %}Tiebreaker already taken by another user this week. Choose a different number.{% endif %}
+  </div>
+{% endif %}
+
+<form method="get" action="/picks" class="mb-6">
+  <label class="block text-sm mb-1">Week</label>
+  <select name="week"
+          class="bg-slate-900 border border-slate-700 rounded px-3 py-2"
+          hx-get="/picks/content"
+          hx-target="#picks-content"
+          hx-push-url="true"
+          hx-include="closest form"
+          hx-trigger="change"
+          hx-indicator="#picks-loading">
+    {% for w in weeks %}
+      <option value="{{ w.id }}" {% if selected_week and w.id == selected_week.id %}selected{% endif %}>Week {{ w.week_number }} ({{ w.season_type_name }})</option>
+    {% endfor %}
+  </select>
+</form>
+
+{% if not selected_week %}
+  <div class="glass rounded-xl border border-slate-800 p-5">
+    <p class="text-slate-400">No schedule available yet.</p>
+  </div>
+{% else %}
+
+<form method="post" action="/picks/save" class="space-y-6">
+  <input type="hidden" name="week_id" value="{{ selected_week.id }}">
+
+  <div class="flex items-center justify-between">
+    <div class="text-slate-300">Week {{ selected_week.week_number }} • {{ selected_week.season_type_name }}</div>
+    {% if locked %}
+      <span class="text-xs px-2 py-1 rounded bg-slate-800 border border-slate-700 text-slate-300">Locked</span>
+    {% else %}
+      <span class="text-xs text-slate-400">You can update picks until the first kickoff.</span>
+    {% endif %}
+  </div>
+
+  <div class="grid gap-4 md:grid-cols-2">
+    {% for g in games %}
+      {% set home = teams_by_id.get(g.home_team_id) %}
+      {% set away = teams_by_id.get(g.away_team_id) %}
+      <div class="glass rounded-xl border border-slate-800 p-4">
+        <div class="text-xs text-slate-400 mb-3">Kickoff: {{ g.start_time }}</div>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="border border-slate-800 rounded p-3 flex items-center gap-3 hover:border-cyan-700 transition">
+            <input type="radio" class="accent-cyan-600" name="pick_{{ g.id }}" value="{{ g.home_team_id }}"
+              {% if existing_picks.get(g.id) == g.home_team_id %}checked{% endif %}{% if locked %} disabled{% endif %}>
+            <img src="{{ team_logo(home) }}" alt="{{ home.name if home else 'Home' }} logo" class="w-8 h-8 rounded object-contain bg-slate-800 border border-slate-700">
+            <div>
+              <div class="font-semibold">{{ home.abbr if home else g.home_team_id }}</div>
+              <div class="text-xs text-slate-400">{{ home.name if home else 'Home' }}</div>
+            </div>
+          </label>
+          <label class="border border-slate-800 rounded p-3 flex items-center gap-3 hover:border-cyan-700 transition">
+            <input type="radio" class="accent-cyan-600" name="pick_{{ g.id }}" value="{{ g.away_team_id }}"
+              {% if existing_picks.get(g.id) == g.away_team_id %}checked{% endif %}{% if locked %} disabled{% endif %}>
+            <img src="{{ team_logo(away) }}" alt="{{ away.name if away else 'Away' }} logo" class="w-8 h-8 rounded object-contain bg-slate-800 border border-slate-700">
+            <div>
+              <div class="font-semibold">{{ away.abbr if away else g.away_team_id }}</div>
+              <div class="text-xs text-slate-400">{{ away.name if away else 'Away' }}</div>
+            </div>
+          </label>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="glass rounded-xl border border-slate-800 p-4">
+    <label class="block text-sm mb-1">Monday Total Points (tiebreaker)</label>
+    <input type="number" min="0" inputmode="numeric" name="tiebreaker" value="{{ tb_guess if tb_guess is not none }}"
+           class="bg-slate-900 border border-slate-700 rounded px-3 py-2 w-48" {% if locked %}disabled{% endif %}>
+    <p class="text-xs text-slate-400 mt-1">Must be unique for the week. Closest without going over wins ties.</p>
+  </div>
+
+  <div class="flex justify-end">
+    <button class="bg-cyan-600 hover:bg-cyan-500 transition rounded px-4 py-2 disabled:opacity-60" {% if locked %}disabled{% endif %}>Save Picks</button>
+  </div>
+</form>
+
+{% endif %}
