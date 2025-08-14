@@ -17,6 +17,7 @@ from app.models.game import Game
 from app.models.pick import Pick
 from app.models.tiebreaker import TieBreaker
 from app.models.team import Team
+from app.models.season import Season
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -265,12 +266,42 @@ def picks_content(request: Request, week: Optional[int] = None, db: Session = De
 
 def _get_current_week(db: Session) -> Optional[Week]:
     now = datetime.now(timezone.utc)
-    upcoming = (
-        db.query(Week).filter(Week.first_kickoff_at >= now).order_by(Week.first_kickoff_at.asc()).first()
+    # Prefer the active season's upcoming (or last) week to avoid cross-season jumps
+    season = (
+        db.query(Season)
+        .filter(Season.is_active == True)  # noqa: E712
+        .order_by(Season.year.desc())
+        .first()
     )
-    if upcoming:
-        return upcoming
-    # If all weeks are in the past, return the last one
+    if not season:
+        season = db.query(Season).order_by(Season.year.desc()).first()
+    if season:
+        upcoming = (
+            db.query(Week)
+            .filter(Week.season_id == season.id, Week.first_kickoff_at >= now)
+            .order_by(Week.first_kickoff_at.asc())
+            .first()
+        )
+        if upcoming:
+            return upcoming
+        last_in_season = (
+            db.query(Week)
+            .filter(Week.season_id == season.id)
+            .order_by(Week.first_kickoff_at.desc())
+            .first()
+        )
+        if last_in_season:
+            return last_in_season
+
+    # Global fallback: next upcoming week across all seasons, then most recent overall
+    upcoming_any = (
+        db.query(Week)
+        .filter(Week.first_kickoff_at >= now)
+        .order_by(Week.first_kickoff_at.asc())
+        .first()
+    )
+    if upcoming_any:
+        return upcoming_any
     return db.query(Week).order_by(Week.first_kickoff_at.desc()).first()
 
 

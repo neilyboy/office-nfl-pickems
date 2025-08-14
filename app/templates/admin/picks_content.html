@@ -10,7 +10,7 @@
     {% else %}
       <span class="inline-block bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs opacity-40 cursor-not-allowed">‹ Prev</span>
     {% endif %}
-    <span class="font-semibold">Week {{ selected_week.week_number if selected_week else '' }} • {{ selected_week.season_type_name if selected_week else '' }}</span>
+    <span class="font-semibold">Week {{ selected_week.week_number if selected_week else '' }} — {{ selected_week.season.year if selected_week else '' }} ({{ selected_week.season_type_name if selected_week else '' }})</span>
     {% if next_week %}
       <a href="/admin/picks?user_id={{ selected_user.id if selected_user else '' }}&week={{ next_week.id }}"
          class="inline-block bg-slate-800 border border-slate-700 hover:bg-slate-700 transition rounded px-2 py-1 text-xs"
@@ -67,7 +67,7 @@
             hx-trigger="change"
             hx-indicator="#admin-picks-loading">
       {% for w in weeks %}
-        <option value="{{ w.id }}" {% if selected_week and w.id == selected_week.id %}selected{% endif %}>Week {{ w.week_number }} ({{ w.season_type_name }})</option>
+        <option value="{{ w.id }}" {% if selected_week and w.id == selected_week.id %}selected{% endif %}>Week {{ w.week_number }} — {{ w.season.year }} ({{ w.season_type_name }})</option>
       {% endfor %}
     </select>
   </div>
@@ -84,7 +84,7 @@
   <input type="hidden" name="week_id" value="{{ selected_week.id }}">
 
   <div class="flex items-center justify-between">
-    <div class="text-slate-300">Editing picks for <span class="font-semibold">{{ selected_user.display_name or selected_user.username }}</span> — Week {{ selected_week.week_number }} • {{ selected_week.season_type_name }}</div>
+    <div class="text-slate-300">Editing picks for <span class="font-semibold">{{ selected_user.display_name or selected_user.username }}</span> — Week {{ selected_week.week_number }} — {{ selected_week.season.year }} ({{ selected_week.season_type_name }})</div>
     {% if locked %}
       <span class="text-xs px-2 py-1 rounded bg-slate-800 border border-slate-700 text-slate-300">Locked</span>
     {% else %}

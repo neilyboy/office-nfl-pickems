@@ -1,7 +1,7 @@
 <section id="live-board" class="glass rounded-xl border border-slate-800 p-5 md:col-span-2" hx-get="/dashboard/live{% if selected_week or demo_mode or request.query_params.get('demo') %}?{% if selected_week %}week={{ selected_week.id }}{% endif %}{% if (selected_week and (demo_mode or request.query_params.get('demo'))) %}&{% endif %}{% if demo_mode or request.query_params.get('demo') %}demo=1{% endif %}{% endif %}" hx-trigger="load, every {{ refresh_interval|default(60) }}s" hx-swap="outerHTML">
   <div class="flex items-center justify-between mb-3">
     <h2 class="font-semibold flex items-center gap-2">
-      Live Scoreboard{% if selected_week %} — Week {{ selected_week.week_number }}{% endif %}
+      Live Scoreboard{% if selected_week %} — Week {{ selected_week.week_number }} — {{ selected_week.season.year }} ({{ selected_week.season_type_name }}){% endif %}
       {% if live_games and live_games|length > 0 %}
         <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-600/50 animate-pulse">LIVE</span>
       {% endif %}
@@ -210,10 +210,10 @@
             <div class="text-slate-400">Picked {{ away.abbr if away else 'Away' }}</div>
             {% set ps = picks_summary.get(g.id) %}
             <div class="font-semibold">{{ ps.away_count if ps else 0 }}</div>
-            {% if ps and selected_week and selected_week.is_locked() and ps.away_users %}
+            {% if ps and ps.away_users %}
               {% set maxa = 10 %}
               {% set extra = (ps.away_users | length) - maxa %}
-              <div x-data="{open:false}" @pointerdown.prevent.stop="open=!open" @click.outside="open=false" @keydown.escape="open=false" @keydown.enter.prevent="open=!open" @keydown.space.prevent="open=!open" tabindex="0" class="mt-1 flex items-center -space-x-2 relative cursor-pointer" title="{{ (ps.away_users | map(attribute='name') | join(', ')) }}">
+              <div x-data="{open:false}" @pointerdown.prevent.stop="open=!open" @mouseenter="open=true" @mouseleave="open=false" @click.outside="open=false" @keydown.escape="open=false" @keydown.enter.prevent="open=!open" @keydown.space.prevent="open=!open" tabindex="0" role="button" :aria-expanded="open.toString()" aria-haspopup="true" class="mt-1 flex items-center -space-x-2 relative cursor-pointer" title="{{ (ps.away_users | map(attribute='name') | join(', ')) }}">
                 {% for u in ps.away_users %}
                   {% if loop.index0 < maxa %}
                     <img src="{{ u.avatar_url }}" alt="{{ u.name }}" title="{{ u.name }}" class="w-6 h-6 rounded-full object-cover border border-slate-700 ring-1 ring-slate-800">
@@ -236,10 +236,10 @@
           <div class="rounded border border-slate-800 p-2">
             <div class="text-slate-400">Picked {{ home.abbr if home else 'Home' }}</div>
             <div class="font-semibold">{{ ps.home_count if ps else 0 }}</div>
-            {% if ps and selected_week and selected_week.is_locked() and ps.home_users %}
+            {% if ps and ps.home_users %}
               {% set maxa = 10 %}
               {% set extra = (ps.home_users | length) - maxa %}
-              <div x-data="{open:false}" @pointerdown.prevent.stop="open=!open" @click.outside="open=false" @keydown.escape="open=false" @keydown.enter.prevent="open=!open" @keydown.space.prevent="open=!open" tabindex="0" class="mt-1 flex items-center justify-end -space-x-2 relative cursor-pointer" title="{{ (ps.home_users | map(attribute='name') | join(', ')) }}">
+              <div x-data="{open:false}" @pointerdown.prevent.stop="open=!open" @mouseenter="open=true" @mouseleave="open=false" @click.outside="open=false" @keydown.escape="open=false" @keydown.enter.prevent="open=!open" @keydown.space.prevent="open=!open" tabindex="0" role="button" :aria-expanded="open.toString()" aria-haspopup="true" class="mt-1 flex items-center justify-end -space-x-2 relative cursor-pointer" title="{{ (ps.home_users | map(attribute='name') | join(', ')) }}">
                 {% for u in ps.home_users %}
                   {% if loop.index0 < maxa %}
                     <img src="{{ u.avatar_url }}" alt="{{ u.name }}" title="{{ u.name }}" class="w-6 h-6 rounded-full object-cover border border-slate-700 ring-1 ring-slate-800">
@@ -357,10 +357,10 @@
             <div class="text-slate-400">Picked {{ away.abbr if away else 'Away' }}</div>
             {% set ps = picks_summary.get(g.id) %}
             <div class="font-semibold">{{ ps.away_count if ps else 0 }}</div>
-            {% if ps and selected_week and selected_week.is_locked() and ps.away_users %}
+            {% if ps and ps.away_users %}
               {% set maxa = 10 %}
               {% set extra = (ps.away_users | length) - maxa %}
-              <div x-data="{open:false}" @pointerdown.prevent.stop="open=!open" @click.outside="open=false" @keydown.escape="open=false" @keydown.enter.prevent="open=!open" @keydown.space.prevent="open=!open" tabindex="0" class="mt-1 flex items-center -space-x-2 relative cursor-pointer" title="{{ (ps.away_users | map(attribute='name') | join(', ')) }}">
+              <div x-data="{open:false}" @pointerdown.prevent.stop="open=!open" @mouseenter="open=true" @mouseleave="open=false" @click.outside="open=false" @keydown.escape="open=false" @keydown.enter.prevent="open=!open" @keydown.space.prevent="open=!open" tabindex="0" role="button" :aria-expanded="open.toString()" aria-haspopup="true" class="mt-1 flex items-center -space-x-2 relative cursor-pointer" title="{{ (ps.away_users | map(attribute='name') | join(', ')) }}">
                 {% for u in ps.away_users %}
                   {% if loop.index0 < maxa %}
                     <img src="{{ u.avatar_url }}" alt="{{ u.name }}" title="{{ u.name }}" class="w-6 h-6 rounded-full object-cover border border-slate-700 ring-1 ring-slate-800">
@@ -383,10 +383,10 @@
           <div class="rounded border border-slate-800 p-2">
             <div class="text-slate-400">Picked {{ home.abbr if home else 'Home' }}</div>
             <div class="font-semibold">{{ ps.home_count if ps else 0 }}</div>
-            {% if ps and selected_week and selected_week.is_locked() and ps.home_users %}
+            {% if ps and ps.home_users %}
               {% set maxa = 10 %}
               {% set extra = (ps.home_users | length) - maxa %}
-              <div x-data="{open:false}" @pointerdown.prevent.stop="open=!open" @click.outside="open=false" @keydown.escape="open=false" @keydown.enter.prevent="open=!open" @keydown.space.prevent="open=!open" tabindex="0" class="mt-1 flex items-center justify-end -space-x-2 relative cursor-pointer" title="{{ (ps.home_users | map(attribute='name') | join(', ')) }}">
+              <div x-data="{open:false}" @pointerdown.prevent.stop="open=!open" @mouseenter="open=true" @mouseleave="open=false" @click.outside="open=false" @keydown.escape="open=false" @keydown.enter.prevent="open=!open" @keydown.space.prevent="open=!open" tabindex="0" role="button" :aria-expanded="open.toString()" aria-haspopup="true" class="mt-1 flex items-center justify-end -space-x-2 relative cursor-pointer" title="{{ (ps.home_users | map(attribute='name') | join(', ')) }}">
                 {% for u in ps.home_users %}
                   {% if loop.index0 < maxa %}
                     <img src="{{ u.avatar_url }}" alt="{{ u.name }}" title="{{ u.name }}" class="w-6 h-6 rounded-full object-cover border border-slate-700 ring-1 ring-slate-800">
@@ -463,10 +463,10 @@
             <div class="text-slate-400">Picked {{ away.abbr if away else 'Away' }}</div>
             {% set ps = picks_summary.get(g.id) %}
             <div class="font-semibold">{{ ps.away_count if ps else 0 }}</div>
-            {% if ps and selected_week and selected_week.is_locked() and ps.away_users %}
+            {% if ps and ps.away_users %}
               {% set maxa = 10 %}
              {% set extra = (ps.away_users | length) - maxa %}
-              <div x-data="{open:false}" @pointerdown.prevent.stop="open=!open" @click.outside="open=false" @keydown.escape="open=false" @keydown.enter.prevent="open=!open" @keydown.space.prevent="open=!open" tabindex="0" class="mt-1 flex items-center -space-x-2 relative cursor-pointer" title="{{ (ps.away_users | map(attribute='name') | join(', ')) }}">
+              <div x-data="{open:false}" @pointerdown.prevent.stop="open=!open" @mouseenter="open=true" @mouseleave="open=false" @click.outside="open=false" @keydown.escape="open=false" @keydown.enter.prevent="open=!open" @keydown.space.prevent="open=!open" tabindex="0" role="button" :aria-expanded="open.toString()" aria-haspopup="true" class="mt-1 flex items-center -space-x-2 relative cursor-pointer" title="{{ (ps.away_users | map(attribute='name') | join(', ')) }}">
                 {% for u in ps.away_users %}
                   {% if loop.index0 < maxa %}
                     <img src="{{ u.avatar_url }}" alt="{{ u.name }}" title="{{ u.name }}" class="w-6 h-6 rounded-full object-cover border border-slate-700 ring-1 ring-slate-800">
@@ -489,10 +489,10 @@
           <div class="rounded border border-slate-800 p-2">
             <div class="text-slate-400">Picked {{ home.abbr if home else 'Home' }}</div>
             <div class="font-semibold">{{ ps.home_count if ps else 0 }}</div>
-            {% if ps and selected_week and selected_week.is_locked() and ps.home_users %}
+            {% if ps and ps.home_users %}
               {% set maxa = 10 %}
               {% set extra = (ps.home_users | length) - maxa %}
-              <div x-data="{open:false}" @pointerdown.prevent.stop="open=!open" @click.outside="open=false" @keydown.escape="open=false" @keydown.enter.prevent="open=!open" @keydown.space.prevent="open=!open" tabindex="0" class="mt-1 flex items-center justify-end -space-x-2 relative cursor-pointer" title="{{ (ps.home_users | map(attribute='name') | join(', ')) }}">
+              <div x-data="{open:false}" @pointerdown.prevent.stop="open=!open" @mouseenter="open=true" @mouseleave="open=false" @click.outside="open=false" @keydown.escape="open=false" @keydown.enter.prevent="open=!open" @keydown.space.prevent="open=!open" tabindex="0" role="button" :aria-expanded="open.toString()" aria-haspopup="true" class="mt-1 flex items-center justify-end -space-x-2 relative cursor-pointer" title="{{ (ps.home_users | map(attribute='name') | join(', ')) }}">
                 {% for u in ps.home_users %}
                   {% if loop.index0 < maxa %}
                     <img src="{{ u.avatar_url }}" alt="{{ u.name }}" title="{{ u.name }}" class="w-6 h-6 rounded-full object-cover border border-slate-700 ring-1 ring-slate-800">

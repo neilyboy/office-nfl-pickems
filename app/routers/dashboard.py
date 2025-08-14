@@ -134,11 +134,35 @@ def dashboard(request: Request, week: Optional[int] = None, db: Session = Depend
 
 def _get_current_week(db: Session) -> Optional[Week]:
     now = datetime.now(timezone.utc)
-    upcoming = (
-        db.query(Week).filter(Week.first_kickoff_at >= now).order_by(Week.first_kickoff_at.asc()).first()
+    # Prefer the active season's upcoming (or last) week to avoid cross-season jumps
+    season = _active_season(db, None)
+    if season:
+        upcoming = (
+            db.query(Week)
+            .filter(Week.season_id == season.id, Week.first_kickoff_at >= now)
+            .order_by(Week.first_kickoff_at.asc())
+            .first()
+        )
+        if upcoming:
+            return upcoming
+        last_in_season = (
+            db.query(Week)
+            .filter(Week.season_id == season.id)
+            .order_by(Week.first_kickoff_at.desc())
+            .first()
+        )
+        if last_in_season:
+            return last_in_season
+
+    # Global fallback: next upcoming week across all seasons, then most recent overall
+    upcoming_any = (
+        db.query(Week)
+        .filter(Week.first_kickoff_at >= now)
+        .order_by(Week.first_kickoff_at.asc())
+        .first()
     )
-    if upcoming:
-        return upcoming
+    if upcoming_any:
+        return upcoming_any
     return db.query(Week).order_by(Week.first_kickoff_at.desc()).first()
 
 
@@ -385,14 +409,11 @@ def dashboard_content(request: Request, week: Optional[int] = None, db: Session 
         if not selected_week:
             selected_week = _get_current_week(db)
 
-        # Build weeks list for selector (same season and season_type as selected week)
+        # Build weeks list for selector (same season as selected week)
         weeks = (
             db.query(Week)
-            .filter(
-                Week.season_id == selected_week.season_id,
-                Week.season_type == selected_week.season_type,
-            )
-            .order_by(Week.week_number)
+            .filter(Week.season_id == selected_week.season_id)
+            .order_by(Week.season_type, Week.week_number)
             .all()
             if selected_week
             else []
@@ -561,6 +582,19 @@ def dashboard_live(request: Request, week: Optional[int] = None, demo: Optional[
                     gmap["away_names"].append(name)
                 gmap["away_users"].append({"name": name, "avatar_url": avatar_url})
         picks_summary = by_game
+
+    # Enforce privacy: hide others' picks until first kickoff unless admin
+    try:
+        if selected_week and hasattr(selected_week, "is_locked"):
+            week_locked = bool(selected_week.is_locked())
+        else:
+            week_locked = False
+    except Exception:
+        week_locked = False
+    can_reveal_picks = bool(user and getattr(user, "is_admin", False)) or week_locked
+    if not can_reveal_picks:
+        # Clear pick distributions to avoid leaking information pre-kickoff
+        picks_summary = {}
 
     # Live clocks from ESPN for non-final games with a provider id
     event_ids = [g.provider_game_id for g in games if g.provider_game_id and g.status != GameStatus.FINAL]
